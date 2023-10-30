@@ -1,0 +1,305 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+generator factories {
+  provider = "prisma-factory"
+}
+enum Fonction {
+  ATTACHE
+  RESPONSABLE_PEDAGOGIQUE
+  ELEVE
+  PROFESSEUR
+}
+
+enum TypeCours {
+  PRESENTIEL
+  LIGNE
+}
+
+enum Sexe {
+  MASCULIN
+  FEMININ
+}
+
+enum Action {
+  WRITE
+  READ
+  CREATE
+  DELETE
+  UPDATE
+  ALL
+}
+
+enum Letter {
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+  H
+  I
+  J
+  K
+  L
+  O
+  P
+  Q
+  R
+  S
+  T
+  U
+  V
+  W
+  X
+  Y
+  Z
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  email       String       @unique
+  firstname   String
+  lastname    String
+  password    String
+  fonction    Fonction
+  sexe        Sexe
+  photo       String?      @db.Text()
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  professeurs Professeur[] @relation("professeur_user")
+  roles       UserRole[]   @relation("UserRole_user")
+  etudiants   Etudiant[]   @relation("etudiant_user")
+}
+model Professeur {
+  id             Int                @id @default(autoincrement())
+  grade          String             @db.VarChar(50)
+  specialite     String             @db.VarChar(50)
+  user_id        Int
+  user           User               @relation("professeur_user", fields: [user_id], references: [id])
+  modules        ProfesseurModule[] @relation("professeurModule_professeur")
+  AnnulerSession AnnulerSession[]   @relation("annulerSession_professeur")
+}
+model Role {
+  id       Int        @id @default(autoincrement())
+  libelle  Action
+  UserRole UserRole[] @relation("UserRole_role")
+}
+
+model UserRole {
+  id      Int  @id @default(autoincrement())
+  user_id Int
+  role_id Int
+  user    User @relation("UserRole_user", fields: [user_id], references: [id])
+  role    Role @relation("UserRole_role", fields: [role_id], references: [id])
+}
+
+
+
+model Etudiant {
+  id           Int           @id @default(autoincrement())
+  user_id      Int
+  user         User          @relation("etudiant_user", fields: [user_id], references: [id])
+  inscriptions Inscription[] @relation("inscription_etudiant")
+}
+
+model Module {
+  id          Int                @id @default(autoincrement())
+  libelle     String             @unique @db.VarChar(50)
+  professeurs ProfesseurModule[] @relation("professeurModule_module")
+}
+
+model ProfesseurModule {
+  id            Int        @id @default(autoincrement())
+  professeur_id Int
+  module_id     Int
+  professeur    Professeur @relation("professeurModule_professeur", fields: [professeur_id], references: [id])
+  module        Module     @relation("professeurModule_module", fields: [module_id], references: [id])
+  Cours         Cours[]    @relation("cours_professeur")
+}
+
+model Classe {
+  id        Int            @id @default(autoincrement())
+  libelle   String         @db.VarChar(30)
+  niveau_id Int
+  type      Letter
+  niveau    Niveau         @relation("classe_niveau", fields: [niveau_id], references: [id])
+  annees    ClasseActive[] @relation("classeActive_classe")
+    @@unique([libelle, niveau_id,type])
+}
+
+model Niveau {
+  id       Int        @id @default(autoincrement())
+  libelle  String     @unique @db.VarChar(50)
+  classes  Classe[]   @relation("classe_niveau")
+  TypeNote TypeNote[] @relation("typeNote_niveau")
+}
+
+model Annee {
+  id      Int            @id @default(autoincrement())
+  libelle String         @unique @db.VarChar(50)
+  active  Boolean @default(false)
+  classes ClasseActive[] @relation("classeActive_annee")
+}
+
+model ClasseActive {
+  id          Int              @id @default(autoincrement())
+  classe_id   Int
+  annee_id    Int
+  classe      Classe           @relation("classeActive_classe", fields: [classe_id], references: [id])
+  annee       Annee            @relation("classeActive_annee", fields: [annee_id], references: [id])
+  cours       Cours[]          @relation("cours_classe")
+  Inscription Inscription[]    @relation("inscription_classe")
+  semestres   SemestreActive[] @relation("semestreActive_classe")
+}
+
+model Absence {
+  id             Int         @id @default(autoincrement())
+  inscription_id Int
+  session_id     Int
+  date           DateTime
+  justification  String      @db.VarChar(100)
+  accepter       Boolean     @default(false)
+  inscription    Inscription @relation("absence_inscription", fields: [inscription_id], references: [id])
+  session        Session     @relation("absence_session", fields: [session_id], references: [id])
+}
+
+model Semestre {
+  id      Int              @id @default(autoincrement())
+  libelle String           @unique
+  classes SemestreActive[] @relation("semestreActive_semestre")
+}
+
+model SemestreActive {
+  id          Int          @id @default(autoincrement())
+  classe_id   Int
+  semestre_id Int
+  classe      ClasseActive @relation("semestreActive_classe", fields: [classe_id], references: [id])
+  semestre    Semestre     @relation("semestreActive_semestre", fields: [semestre_id], references: [id])
+  Note        Note[]       @relation("note_semestre")
+}
+
+model Cours {
+  id            Int              @id @default(autoincrement())
+  classe_id     Int
+  professeur_id Int
+  nb_heure      Int
+  nb_restant    Int
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+  type_cours    TypeCours
+  classe        ClasseActive     @relation("cours_classe", fields: [classe_id], references: [id])
+  professeur    ProfesseurModule @relation("cours_professeur", fields: [professeur_id], references: [id])
+  Sessions      Session[]        @relation("session_cours")
+}
+
+model Salle {
+  id       Int       @id @default(autoincrement())
+  libelle  String    @db.VarChar(50)
+  sessions Session[] @relation("session_salle")
+}
+
+model Session {
+  id             Int              @id @default(autoincrement())
+  cours_id       Int
+  salle_id       Int
+  heure_deb      Int
+  heure_fin      Int
+  liste          Boolean          @default(false)
+  valider        Boolean          @default(false)
+  cours          Cours            @relation("session_cours", fields: [cours_id], references: [id])
+  salle          Salle            @relation("session_salle", fields: [salle_id], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  date           DateTime?
+  AnnulerSession AnnulerSession[] @relation("annulerSession_session")
+  Absence        Absence[]        @relation("absence_session")
+}
+
+model AnnulerSession {
+  id            Int        @id @default(autoincrement())
+  motif         String?    @db.VarChar(255)
+  professeur_id Int
+  session_id    Int
+  date          DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  professeur    Professeur @relation("annulerSession_professeur", fields: [professeur_id], references: [id])
+  session       Session    @relation("annulerSession_session", fields: [session_id], references: [id])
+}
+
+model Inscription {
+  id          Int          @id @default(autoincrement())
+  classe_id   Int
+  etudiant_id Int
+  etudiant    Etudiant     @relation("inscription_etudiant", fields: [etudiant_id], references: [id])
+  classe      ClasseActive @relation("inscription_classe", fields: [classe_id], references: [id])
+  date        DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  notes       Note[]       @relation("note_inscription")
+  Absence     Absence[]    @relation("absence_inscription")
+}
+
+model GroupeDiscipline {
+  id      Int    @id @default(autoincrement())
+  libelle String @unique @db.VarChar(50)
+
+  disciplines Discipline[] @relation("discipline_groupeDiscipline")
+}
+
+model Discipline {
+  id          Int              @id @default(autoincrement())
+  libelle     String           @unique @db.VarChar(10)
+  descritpion String           @db.VarChar(100)
+  groupe_id   Int
+  groupe      GroupeDiscipline @relation("discipline_groupeDiscipline", fields: [groupe_id], references: [id])
+  maxNotes    MaxNote[]        @relation("maxnote_discipline")
+}
+
+model TypeNote {
+  id        Int       @id @default(autoincrement())
+  libelle   String    @unique @db.VarChar(50)
+  niveau_id Int
+  default   Int       @default(10)
+  niveau    Niveau    @relation("typeNote_niveau", fields: [niveau_id], references: [id])
+  maxNotes  MaxNote[] @relation("maxnote_type")
+}
+
+model InfoClasse {
+  id            Int     @id @default(autoincrement())
+  classe_id     Int
+  discipline_id Int
+  etat          Boolean @default(true)
+}
+
+model MaxNote {
+  id            Int        @id @default(autoincrement())
+  discipline_id Int
+  type_id       Int
+  value         Int
+  discipline    Discipline @relation("maxnote_discipline", fields: [discipline_id], references: [id])
+  type          TypeNote   @relation("maxnote_type", fields: [type_id], references: [id])
+}
+
+model Note {
+  id             Int            @id @default(autoincrement())
+  inscription_id Int
+  maxnote_id     Int
+  semestre_id    Int
+  etat           Boolean        @default(true)
+  value          Float
+  inscription    Inscription    @relation("note_inscription", fields: [inscription_id], references: [id])
+  semestre       SemestreActive @relation("note_semestre", fields: [semestre_id], references: [id])
+}
